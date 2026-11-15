@@ -1,0 +1,38 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.mawid.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.mawid.app"
+        minSdk 26          // Android 8.0 فما فوق
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            // للاستخدام الشخصي: توقيع نسخة release بمفتاح debug حتى تُثبَّت مباشرة
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError false
+    }
+}
+
+// لا توجد مكتبات خارجية: التطبيق يعتمد على Android فقط
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+}

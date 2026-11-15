@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">موعد</string>
+    <string name="share_label">موعد</string>
+    <string name="process_text_label">أضف إلى موعد</string>
+</resources>
