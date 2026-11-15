@@ -17,7 +17,8 @@ public class AlarmReceiver extends BroadcastReceiver {
         if (AlarmScheduler.ACTION_REMIND.equals(intent.getAction())) {
             a.reminded = true;
             AppointmentStore.save(context, a);
-            NotificationHelper.showReminder(context, a);
+            boolean rang = a.ring && AlarmService.start(context, a.id, a.title, a.timeMillis);
+            if (!rang) NotificationHelper.showReminder(context, a);
         } else if (AlarmScheduler.ACTION_EXPIRE.equals(intent.getAction())) {
             // انتهى وقت الموعد: يُحذف من التطبيق تلقائياً
             AppointmentStore.delete(context, id);

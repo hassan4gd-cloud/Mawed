@@ -19,6 +19,7 @@ import android.view.Window;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -44,6 +45,9 @@ public class EditorActivity extends Activity {
     private TextView warning;
     private TextView reminderPreview;
     private LinearLayout chips;
+    private Switch ringSwitch;
+    private TextView aiStatus;
+    private int aiRequest;
 
     private LocalDate date;
     private LocalTime time;
@@ -69,6 +73,7 @@ public class EditorActivity extends Activity {
             date = dt.toLocalDate();
             time = dt.toLocalTime();
             remindMinutes = editing.remindMinutes;
+            ringSwitch.setChecked(editing.ring);
             sourceEt.setText(editing.note);
             titleEt.setText(editing.title);
             warning.setVisibility(View.GONE);
@@ -160,6 +165,9 @@ public class EditorActivity extends Activity {
         titleEt = input(false);
         titleEt.setHint("مثال: موعد مع مدير الشركة");
         root.addView(titleEt, Ui.lp(-1, -2));
+        aiStatus = Ui.text(this, "", 13, Ui.MUTED, false);
+        aiStatus.setVisibility(View.GONE);
+        root.addView(aiStatus, Ui.lpMargins(this, -1, -2, 6, 0));
 
         // التاريخ والوقت
         root.addView(label("التاريخ والوقت"), Ui.lpMargins(this, -1, -2, 18, 6));
@@ -194,8 +202,31 @@ public class EditorActivity extends Activity {
         }
         root.addView(chips, Ui.lp(-1, -2));
 
+        // نوع التنبيه
+        root.addView(label("نوع التنبيه"), Ui.lpMargins(this, -1, -2, 18, 6));
+        LinearLayout ringBox = Ui.vertical(this);
+        int rp = Ui.dp(this, 14);
+        ringBox.setPadding(rp, Ui.dp(this, 6), rp, Ui.dp(this, 10));
+        ringBox.setBackground(Ui.rounded(this, Ui.CARD, 14, Ui.BORDER, 1));
+        ringSwitch = new Switch(this);
+        ringSwitch.setText("رنين بملء الشاشة حتى أضغط «إيقاف»");
+        ringSwitch.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        ringSwitch.setTextColor(Ui.TEXT);
+        ringSwitch.setChecked(true);
+        ringSwitch.setMinHeight(Ui.dp(this, 48));
+        ringSwitch.setOnCheckedChangeListener((b, on) -> updateLabels());
+        ringBox.addView(ringSwitch, Ui.lp(-1, -2));
+        TextView ringHint = Ui.text(this,
+                "مثل المنبّه أو المكالمة: نغمة المنبّه واهتزاز يتكرران. إذا أطفأته يصلك إشعار عادي فقط.",
+                13, Ui.MUTED, false);
+        ringBox.addView(ringHint, Ui.lp(-1, -2));
+        TextView test = Ui.button(this, "تجربة الرنين الآن", Ui.BTN_SOFT);
+        test.setOnClickListener(v -> testRing());
+        ringBox.addView(test, Ui.lpMargins(this, -1, -2, 10, 0));
+        root.addView(ringBox, Ui.lp(-1, -2));
+
         reminderPreview = Ui.text(this, "", 14, Ui.MUTED, false);
-        root.addView(reminderPreview, Ui.lpMargins(this, -1, -2, 10, 0));
+        root.addView(reminderPreview, Ui.lpMargins(this, -1, -2, 12, 0));
 
         // الأزرار
         TextView save = Ui.button(this, "حفظ الموعد", Ui.BTN_PRIMARY);
@@ -260,9 +291,10 @@ public class EditorActivity extends Activity {
         } else {
             reminderPreview.setTextColor(Ui.MUTED);
             s = "الموعد " + Fmt.until(when) + "، ";
+            String kind = ringSwitch.isChecked() ? "الرنين" : "التذكير";
             s += remindAt > now
-                    ? "وسيظهر التذكير " + Fmt.relativeDay(Fmt.toLocal(remindAt).toLocalDate()) + " الساعة " + Fmt.time(remindAt) + "."
-                    : "وسيظهر التذكير فوراً بعد الحفظ.";
+                    ? "وسيبدأ " + kind + " " + Fmt.relativeDay(Fmt.toLocal(remindAt).toLocalDate()) + " الساعة " + Fmt.time(remindAt) + "."
+                    : "وسيظهر إشعار التذكير فوراً بعد الحفظ.";
             s += "\nيُحذف الموعد تلقائياً عند انتهاء وقته.";
         }
         reminderPreview.setText(s);
@@ -287,6 +319,7 @@ public class EditorActivity extends Activity {
         date = r.when.toLocalDate();
         time = r.when.toLocalTime().truncatedTo(ChronoUnit.MINUTES);
         titleEt.setText(r.title);
+        requestAiTitle(text, r.title);
 
         if (!r.timeFound && !r.dateFound) {
             warning.setText("لم أجد تاريخاً أو وقتاً واضحاً في النص. حدّد التاريخ والوقت يدوياً.");
@@ -297,6 +330,45 @@ public class EditorActivity extends Activity {
         } else {
             warning.setVisibility(View.GONE);
         }
+    }
+
+    /** يطلب عنواناً من Gemini في الخلفية، ويستبدل العنوان المحلي إن لم يعدّله المستخدم. */
+    private void requestAiTitle(String text, String localTitle) {
+        if (!AiTitle.isEnabled(this)) {
+            aiStatus.setVisibility(View.GONE);
+            return;
+        }
+        final int req = ++aiRequest;
+        aiStatus.setTextColor(Ui.MUTED);
+        aiStatus.setText("جارٍ كتابة العنوان بالذكاء الاصطناعي…");
+        aiStatus.setVisibility(View.VISIBLE);
+        final android.content.Context app = getApplicationContext();
+        new Thread(() -> {
+            String title = null;
+            String error = null;
+            try {
+                title = AiTitle.generate(app, text);
+            } catch (AiTitle.AiException e) {
+                error = e.getMessage();
+            }
+            final String t = title;
+            final String err = error;
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed() || req != aiRequest) return;
+                if (t != null) {
+                    // لا نستبدل عنواناً كتبه المستخدم بنفسه أثناء الانتظار
+                    if (titleEt.getText().toString().trim().equals(localTitle.trim())) {
+                        titleEt.setText(t);
+                        titleEt.setSelection(titleEt.getText().length());
+                    }
+                    aiStatus.setTextColor(0xFF15803D);
+                    aiStatus.setText("العنوان من الذكاء الاصطناعي ✓");
+                } else {
+                    aiStatus.setTextColor(Ui.WARN);
+                    aiStatus.setText("تعذّر استخدام الذكاء الاصطناعي (" + err + ")، استُخدم العنوان المحلي.");
+                }
+            });
+        }).start();
     }
 
     private void pasteFromClipboard() {
@@ -348,6 +420,7 @@ public class EditorActivity extends Activity {
         a.timeMillis = when;
         a.remindMinutes = remindMinutes;
         a.reminded = false;
+        a.ring = ringSwitch.isChecked();
         if (editing != null) AlarmScheduler.cancel(this, a.id);
         AppointmentStore.save(this, a);
         AlarmScheduler.schedule(this, a);
@@ -356,6 +429,16 @@ public class EditorActivity extends Activity {
         if (!NotificationHelper.canPost(this)) msg += "\nتنبيه: الإشعارات متوقفة، فعّلها ليظهر التذكير.";
         Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
         finish();
+    }
+
+    private void testRing() {
+        String title = titleEt.getText().toString().trim();
+        if (title.isEmpty()) title = "تجربة التنبيه";
+        long when = Fmt.toMillis(LocalDateTime.of(date, time));
+        if (when <= System.currentTimeMillis()) when = System.currentTimeMillis() + remindMinutes * 60_000L;
+        if (!AlarmService.start(this, 0, title, when)) {
+            Toast.makeText(this, "تعذّر تشغيل الرنين", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void confirmDelete() {

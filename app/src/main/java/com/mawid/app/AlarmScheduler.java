@@ -34,7 +34,11 @@ public final class AlarmScheduler {
 
         if (!a.reminded) {
             if (a.remindAtMillis() > now) {
-                setAlarm(c, a.remindAtMillis(), pendingIntent(c, a.id, ACTION_REMIND));
+                if (a.ring) {
+                    setAlarmClock(c, a.remindAtMillis(), pendingIntent(c, a.id, ACTION_REMIND));
+                } else {
+                    setAlarm(c, a.remindAtMillis(), pendingIntent(c, a.id, ACTION_REMIND));
+                }
             } else {
                 // الموعد أقرب من مدة التذكير: نذكّر فوراً
                 a.reminded = true;
@@ -48,6 +52,7 @@ public final class AlarmScheduler {
     /** إلغاء المنبّهات والإشعار الخاص بموعد. */
     public static void cancel(Context c, int id) {
         cancelAlarms(c, id);
+        if (AlarmService.isRinging() && AlarmService.currentId() == id) AlarmService.stop(c);
         NotificationManager nm = c.getSystemService(NotificationManager.class);
         if (nm != null) nm.cancel(id);
     }
@@ -89,6 +94,24 @@ public final class AlarmScheduler {
             }
         } catch (SecurityException e) {
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, pi);
+        }
+    }
+
+    /** منبّه بأولوية «منبّه الساعة»: الأكثر دقة وموثوقية (يظهر رمز المنبّه في شريط الحالة). */
+    private static void setAlarmClock(Context c, long atMillis, PendingIntent pi) {
+        AlarmManager am = c.getSystemService(AlarmManager.class);
+        if (am == null) return;
+        if (!canExact(c)) {
+            setAlarm(c, atMillis, pi);
+            return;
+        }
+        PendingIntent show = PendingIntent.getActivity(c, 0,
+                new Intent(c, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        try {
+            am.setAlarmClock(new AlarmManager.AlarmClockInfo(atMillis, show), pi);
+        } catch (SecurityException e) {
+            setAlarm(c, atMillis, pi);
         }
     }
 

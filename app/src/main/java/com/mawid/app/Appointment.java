@@ -15,6 +15,8 @@ public final class Appointment {
     public int remindMinutes = 10;
     /** هل ظهر إشعار التذكير بالفعل؟ */
     public boolean reminded;
+    /** true = رنين بملء الشاشة حتى الإيقاف ، false = إشعار عادي. */
+    public boolean ring = true;
 
     public long remindAtMillis() {
         return timeMillis - remindMinutes * 60_000L;
@@ -28,6 +30,7 @@ public final class Appointment {
         o.put("time", timeMillis);
         o.put("remind", remindMinutes);
         o.put("reminded", reminded);
+        o.put("ring", ring);
         return o;
     }
 
@@ -39,6 +42,7 @@ public final class Appointment {
         a.timeMillis = o.optLong("time");
         a.remindMinutes = o.optInt("remind", 10);
         a.reminded = o.optBoolean("reminded", false);
+        a.ring = o.optBoolean("ring", true);
         return a;
     }
 }

@@ -8,4 +8,10 @@
         <item name="android:statusBarColor">#F4F5FA</item>
         <item name="android:navigationBarColor">#F4F5FA</item>
     </style>
+
+    <style name="AlarmTheme" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#1E1B4B</item>
+        <item name="android:statusBarColor">#1E1B4B</item>
+        <item name="android:navigationBarColor">#312E81</item>
+    </style>
 </resources>

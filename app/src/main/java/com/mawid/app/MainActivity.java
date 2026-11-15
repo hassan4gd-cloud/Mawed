@@ -80,8 +80,18 @@ public class MainActivity extends Activity {
         int pad = Ui.dp(this, 20);
         root.setPadding(pad, Ui.dp(this, 24), pad, Ui.dp(this, 110));
 
+        LinearLayout header = Ui.horizontal(this);
+        header.setGravity(Gravity.CENTER_VERTICAL);
         TextView title = Ui.text(this, "موعد", 30, Ui.TEXT, true);
-        root.addView(title);
+        header.addView(title, new LinearLayout.LayoutParams(0, -2, 1f));
+        TextView settings = Ui.text(this, "الإعدادات", 15, Ui.ACCENT_DARK, true);
+        int sp = Ui.dp(this, 12);
+        settings.setPadding(sp, Ui.dp(this, 8), sp, Ui.dp(this, 8));
+        settings.setBackground(Ui.ripple(this, Ui.rounded(this, Ui.ACCENT_SOFT, 12, 0, 0), 0x224F46E5, 12));
+        settings.setClickable(true);
+        settings.setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
+        header.addView(settings);
+        root.addView(header, Ui.lp(-1, -2));
         TextView sub = Ui.text(this, "مواعيدك القادمة", 15, Ui.MUTED, false);
         root.addView(sub, Ui.lpMargins(this, -1, -2, 2, 16));
 
@@ -124,6 +134,19 @@ public class MainActivity extends Activity {
             banners.addView(banner("الإشعارات متوقفة، لن يظهر التذكير. اضغط هنا لتفعيلها.", v -> openNotificationSettings()),
                     Ui.lpMargins(this, -1, -2, 0, 12));
         }
+        if (AiTitle.enabledFlag(this) && AiTitle.apiKey(this).isEmpty()) {
+            TextView ai = Ui.text(this, "لعناوين مواعيد أوضح بالذكاء الاصطناعي، أضف مفتاح Gemini المجاني من الإعدادات. اضغط هنا.", 14, Ui.ACCENT_DARK, true);
+            int p = Ui.dp(this, 14);
+            ai.setPadding(p, p, p, p);
+            ai.setBackground(Ui.ripple(this, Ui.rounded(this, Ui.ACCENT_SOFT, 14, 0, 0), 0x224F46E5, 14));
+            ai.setClickable(true);
+            ai.setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
+            banners.addView(ai, Ui.lpMargins(this, -1, -2, 0, 12));
+        }
+        if (!NotificationHelper.canFullScreen(this)) {
+            banners.addView(banner("ليظهر التنبيه بملء الشاشة مثل المنبّه، اسمح للتطبيق بـ«الإشعارات بملء الشاشة». اضغط هنا.", v -> openFullScreenSettings()),
+                    Ui.lpMargins(this, -1, -2, 0, 12));
+        }
         if (!AlarmScheduler.canExact(this)) {
             banners.addView(banner("للتذكير في الوقت الدقيق، اسمح للتطبيق بـ«المنبّهات والتذكيرات». اضغط هنا.", v -> openExactAlarmSettings()),
                     Ui.lpMargins(this, -1, -2, 0, 12));
@@ -154,7 +177,7 @@ public class MainActivity extends Activity {
         card.addView(when, Ui.lpMargins(this, -1, -2, 6, 0));
 
         String meta = Fmt.until(a.timeMillis) + "  •  "
-                + (a.reminded ? "تم التذكير" : "تذكير قبل " + Fmt.duration(a.remindMinutes));
+                + (a.reminded ? "تم التذكير" : (a.ring ? "رنين قبل " : "إشعار قبل ") + Fmt.duration(a.remindMinutes));
         card.addView(Ui.text(this, meta, 13, Ui.MUTED, false), Ui.lpMargins(this, -1, -2, 4, 0));
 
         LinearLayout actions = Ui.horizontal(this);
@@ -242,6 +265,20 @@ public class MainActivity extends Activity {
         Intent i = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                 .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName());
         startActivity(i);
+    }
+
+    private void openFullScreenSettings() {
+        if (Build.VERSION.SDK_INT >= 34) {
+            try {
+                startActivity(new Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT,
+                        Uri.parse("package:" + getPackageName())));
+                return;
+            } catch (Exception ignored) {
+                // نفتح إعدادات التطبيق بدلاً من ذلك
+            }
+        }
+        startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.parse("package:" + getPackageName())));
     }
 
     private void openExactAlarmSettings() {

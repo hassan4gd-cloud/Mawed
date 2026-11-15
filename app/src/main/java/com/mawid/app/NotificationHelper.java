@@ -35,6 +35,13 @@ public final class NotificationHelper {
         nm.createNotificationChannel(ch);
     }
 
+    /** Android 14+: هل يُسمح بعرض التنبيه بملء الشاشة؟ */
+    public static boolean canFullScreen(Context c) {
+        if (Build.VERSION.SDK_INT < 34) return true;
+        NotificationManager nm = c.getSystemService(NotificationManager.class);
+        return nm != null && nm.canUseFullScreenIntent();
+    }
+
     public static boolean canPost(Context c) {
         if (Build.VERSION.SDK_INT >= 33
                 && c.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
